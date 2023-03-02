@@ -1,17 +1,14 @@
 package com.codepath.articlesearch
 
+import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.DividerItemDecoration
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.fragment.app.Fragment
 import com.codepath.articlesearch.databinding.ActivityMainBinding
-import com.codepath.asynchttpclient.AsyncHttpClient
-import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import kotlinx.serialization.json.Json
-import okhttp3.Headers
-import org.json.JSONException
+
 
 fun createJson() = Json {
     isLenient = true
@@ -20,58 +17,49 @@ fun createJson() = Json {
 }
 
 private const val TAG = "MainActivity/"
-private const val SEARCH_API_KEY = BuildConfig.API_KEY
-private const val ARTICLE_SEARCH_URL =
-    "https://api.nytimes.com/svc/search/v2/articlesearch.json?api-key=${SEARCH_API_KEY}"
+
 
 class MainActivity : AppCompatActivity() {
-    private val articles = mutableListOf<Article>()
-    private lateinit var articlesRecyclerView: RecyclerView
     private lateinit var binding: ActivityMainBinding
+    var actionEvent: TextView? = null
+    private fun replaceFragment(articleListFragment: Fragment) {
+        val fragmentManager = supportFragmentManager
+        val fragmentTransaction = fragmentManager.beginTransaction()
+        fragmentTransaction.replace(R.id.article_frame_layout, articleListFragment)
+        fragmentTransaction.commit()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        actionEvent = findViewById(R.id.actionEvent);
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+        // Call helper method to swap the FrameLayout with the fragment
+        //replaceFragment(ArticleListFragment())
+        val fragmentManager = supportFragmentManager
 
-        articlesRecyclerView = findViewById(R.id.articles)
-        val articleAdapter = ArticleAdapter(this, articles)
-        articlesRecyclerView.adapter = articleAdapter
-        articlesRecyclerView.layoutManager = LinearLayoutManager(this).also {
-            val dividerItemDecoration = DividerItemDecoration(this, it.orientation)
-            articlesRecyclerView.addItemDecoration(dividerItemDecoration)
+        // Fragment definition
+        val bestSellerBooksFragment: Fragment = BestSellerBooksFragment()
+        val articleListFragment: Fragment = ArticleListFragment()
+
+        val bottomNavigationView: BottomNavigationView = findViewById(R.id.bottom_navigation)
+
+        // Navigation selection declaration
+        bottomNavigationView.setOnItemSelectedListener { item ->
+            lateinit var fragment: Fragment
+            when (item.itemId) {
+                R.id.nav_books -> fragment = bestSellerBooksFragment
+                R.id.nav_articles -> fragment = articleListFragment
+            }
+            replaceFragment(fragment) // Change parameter to article list fragment if you get an error
+            true
         }
-
-        val client = AsyncHttpClient()
-        client.get(ARTICLE_SEARCH_URL, object : JsonHttpResponseHandler() {
-            override fun onFailure(
-                statusCode: Int,
-                headers: Headers?,
-                response: String?,
-                throwable: Throwable?
-            ) {
-                Log.e(TAG, "Failed to fetch articles: $statusCode")
-            }
-
-            override fun onSuccess(statusCode: Int, headers: Headers, json: JSON) {
-                Log.i(TAG, "Successfully fetched articles: $json")
-                try {
-                    val parsedJson = createJson().decodeFromString(
-                        SearchNewsResponse.serializer(),
-                        json.jsonObject.toString()
-                    )
-                    parsedJson.response?.docs?.let { list ->
-                        articles.addAll(list)
-                        articleAdapter.notifyDataSetChanged()
-                    }
-                } catch (e: JSONException) {
-                    Log.e(TAG, "Exception: $e")
-                }
-            }
-
-        })
-
+        // Initializing the default selection
+        bottomNavigationView.selectedItemId = R.id.nav_books
+    }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
     }
 }
